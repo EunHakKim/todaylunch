@@ -31,6 +31,5 @@ public class ApiController {
         return ResponseEntity.ok()
                 .body(apiService.getListFromApi(category));
     }
-
      */
 }

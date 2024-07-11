@@ -47,7 +47,6 @@ public class ApiService {
         }else{
             param.put("query", category.name());
         }
-        param.put("query", category.name());
         param.put("x", xAddress);
         param.put("y", yAddress);
         param.put("radius", "5000");

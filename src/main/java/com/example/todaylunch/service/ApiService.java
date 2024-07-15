@@ -1,6 +1,9 @@
 package com.example.todaylunch.service;
 
-import com.example.todaylunch.dao.Category;
+import com.example.todaylunch.domain.Category;
+import com.example.todaylunch.domain.Others;
+import com.example.todaylunch.domain.Western;
+import com.example.todaylunch.dto.RequestDTO;
 import com.example.todaylunch.dto.ResponseDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,9 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -32,27 +33,17 @@ public class ApiService {
         this.yAddress = "37.4003183";
     }
 
-    public ResponseDTO getRandomFromApi(Category category) throws Exception{
+    public ResponseDTO getRandomFromApi(RequestDTO requestDTO) throws Exception{
         Random ran=new Random();
         RestTemplate restTemplate = new RestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.add("Authorization", apiKey);
+        headers.add("Authorization", "KakaoAK " + apiKey);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        Map<String, String> param = new HashMap<>();
-        if(category==Category.전체) {
-            param.put("query", "맛집");
-        }else{
-            param.put("query", category.name());
-        }
-        param.put("x", xAddress);
-        param.put("y", yAddress);
-        param.put("radius", "5000");
-        param.put("size", "1");
-        param.put("sort", "distance");
-        param.put("page", String.valueOf(ran.nextInt(45)+1));
+        Category category = requestDTO.getCategory().get(ran.nextInt(requestDTO.getCategory().size()));
+        Map<String, String> param = setParam(category, 1, ran.nextInt(45)+1);
 
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(apiUrl);
         for (Map.Entry<String, String> entry : param.entrySet()) {
@@ -83,9 +74,71 @@ public class ApiService {
                 .build();
     }
 
-    /*
-    public List<RequestDTO> getListFromApi(Category category) {
+    public List<ResponseDTO> getListFromApi(Category category) throws Exception {
+        List<ResponseDTO> responseList = new ArrayList<>();
+        for(int i=0;i<2;i++){
+            RestTemplate restTemplate = new RestTemplate();
 
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add("Authorization", "KakaoAK " + apiKey);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            Map<String, String> param = setParam(category, 15, i+1);
+
+            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromHttpUrl(apiUrl);
+            for (Map.Entry<String, String> entry : param.entrySet()) {
+                uriBuilder.queryParam(entry.getKey(), entry.getValue());
+            }
+            URI uri = uriBuilder.build().encode().toUri();
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode documents = root.path("documents");
+            Iterator<JsonNode> elements = documents.elements();
+            while (elements.hasNext()) {
+                JsonNode document = elements.next();
+                ResponseDTO responseDTO = ResponseDTO.builder()
+                        .id(document.path("id").asLong())
+                        .xAddress(document.path("x").asText())
+                        .yAddress(document.path("y").asText())
+                        .address(document.path("road_address_name").asText())
+                        .name(document.path("place_name").asText())
+                        .url(document.path("place_url").asText())
+                        .categoryName(document.path("category_name").asText())
+                        .distance(document.path("distance").asInt())
+                        .build();
+
+                responseList.add(responseDTO);
+            }
+        }
+        return responseList;
     }
-     */
+
+    private Map<String, String> setParam(Category category, int size, int page) {
+        Map<String, String> param = new HashMap<>();
+        if(category ==Category.ALL) {
+            param.put("query", "맛집");
+        }else if(category ==Category.OTHERS) {
+            Others others = Others.getRandom();
+            param.put("query", others.getKoreanName());
+        } else if(category ==Category.WESTERN) {
+            Western western = Western.getRandom();
+            param.put("query", western.getKoreanName());
+        } else {
+            param.put("query", category.getKoreanName());
+        }
+        param.put("x", xAddress);
+        param.put("y", yAddress);
+        param.put("radius", "5000");
+        param.put("size", String.valueOf(size));
+        param.put("sort", "distance");
+        param.put("page", String.valueOf(page));
+        return param;
+    }
 }

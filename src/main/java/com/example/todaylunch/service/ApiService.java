@@ -1,8 +1,6 @@
 package com.example.todaylunch.service;
 
 import com.example.todaylunch.domain.Category;
-import com.example.todaylunch.domain.Others;
-import com.example.todaylunch.domain.Western;
 import com.example.todaylunch.dto.RequestDTO;
 import com.example.todaylunch.dto.ResponseDTO;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -122,17 +120,7 @@ public class ApiService {
 
     private Map<String, String> setParam(Category category, int size, int page) {
         Map<String, String> param = new HashMap<>();
-        if(category ==Category.ALL) {
-            param.put("query", "맛집");
-        }else if(category ==Category.OTHERS) {
-            Others others = Others.getRandom();
-            param.put("query", others.getKoreanName());
-        } else if(category ==Category.WESTERN) {
-            Western western = Western.getRandom();
-            param.put("query", western.getKoreanName());
-        } else {
-            param.put("query", category.getKoreanName());
-        }
+        param.put("query", category.getRandomLabel());
         param.put("x", xAddress);
         param.put("y", yAddress);
         param.put("radius", "5000");

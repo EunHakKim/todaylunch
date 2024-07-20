@@ -1,16 +1,16 @@
-package com.example.todaylunch.domain.member.controller;
+package com.example.todaylunch.domain.user.controller;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
-public class MyController {
+public class MainController {
 
-    @GetMapping("/my")
+    @GetMapping("/")
     @ResponseBody
-    public String myAPI() {
+    public String mainAPI() {
 
-        return "my route";
+        return "main route";
     }
 }

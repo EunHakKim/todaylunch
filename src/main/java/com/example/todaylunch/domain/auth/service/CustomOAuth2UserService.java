@@ -1,51 +1,67 @@
 package com.example.todaylunch.domain.auth.service;
 
-import com.example.todaylunch.domain.member.entity.Member;
-import com.example.todaylunch.domain.auth.dto.OAuth2UserInfo;
-import com.example.todaylunch.domain.auth.dto.PrincipalDetails;
-import com.example.todaylunch.domain.member.repository.UserRepository;
+import com.example.todaylunch.domain.auth.dto.CustomOAuth2User;
+import com.example.todaylunch.domain.auth.dto.KakaoResponse;
+import com.example.todaylunch.domain.user.entity.Role;
+import com.example.todaylunch.domain.user.entity.User;
+import com.example.todaylunch.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Map;
+import java.util.Optional;
 
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
 
-    @Transactional
+    // OAuth2 인증 요청을 받아 사용자 정보를 불러오는 메서드
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        // 1. 유저 정보(attributes) 가져오기
-        Map<String, Object> oAuth2UserAttributes = super.loadUser(userRequest).getAttributes();
 
-        // 2. resistrationId 가져오기 (third-party id)
+        // 상위 클래스에 위임하여 사용자 정보를 불러온다.
+        OAuth2User oAuth2User = super.loadUser(userRequest);
+        System.out.println(oAuth2User.getAttributes());
+
+        // provider 식별
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
+        KakaoResponse kakaoResponse = null;
+        if (registrationId.equals("kakao")){
+            kakaoResponse = new KakaoResponse(oAuth2User.getAttributes());
 
-        // 3. userNameAttributeName 가져오기
-        String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails()
-                .getUserInfoEndpoint().getUserNameAttributeName();
+        } else {
+            return null;
+        }
 
-        // 4. 유저 정보 dto 생성
-        OAuth2UserInfo oAuth2UserInfo = OAuth2UserInfo.of(registrationId, oAuth2UserAttributes);
+        String username = kakaoResponse.getProvider() + " " + kakaoResponse.getProviderId();
 
-        // 5. 회원가입 및 로그인
-        Member member = getOrSave(oAuth2UserInfo);
+        // 기존 사용자 조회
+        Optional<User> existData = userRepository.findByUsername(username);
+        Role role = Role.GUEST;
 
-        // 6. OAuth2User로 반환
-        return new PrincipalDetails(member, oAuth2UserAttributes, userNameAttributeName);
-    }
+        // 사용자가 없으면 새로운 사용자 저장
+        if (existData.isEmpty()) {
+            userRepository.save(User.builder()
+                            .name(kakaoResponse.getName())
+                            .email(kakaoResponse.getEmail())
+                            .profileUrl(kakaoResponse.getProfileUrl())
+                            .username(username)
+                            .role(role)
+                    .build());
+            // 사용자가 있으면 기존 사용자 정보 업데이트
+        } else {
+            existData.get().updateUsername(username);
+            existData.get().updateEmail(kakaoResponse.getEmail());
+            role = existData.get().getRole();
 
-    private Member getOrSave(OAuth2UserInfo oAuth2UserInfo) {
-        Member member = userRepository.findByEmail(oAuth2UserInfo.getEmail())
-                .orElseGet(oAuth2UserInfo::toEntity);
-        return userRepository.save(member);
+            userRepository.save(existData.get());
+        }
+
+        return new CustomOAuth2User(kakaoResponse, Role.GUEST.name());
     }
 }
